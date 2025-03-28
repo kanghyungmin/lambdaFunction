@@ -9,26 +9,26 @@ from psycopg2.extras import DictCursor  # extras에서 DictCursor 직접 import
 from urllib.parse import quote, urlencode
 import time
 
-# [okay]1. 쿠팡 파트너스 API 키 설정 및 onboarding 암호화
-# DB에서 식품데이터 가져오기 (naming)
-# [okay]3. 쿠팡 api 호출 및 제품 URL  + utm_link 생성(Partners API 생성)
-# 4. DB에 저장 + secondFit 
-# 5. cloud lambda에 배포(1주일 마다)
-# 6. utm URL이 없는 것은 어떻게? 채워넣기. 
 
+# 쿠팡 파트너스 API 호출 제한으로 사용 불가.
+# - 검색 API: 1분당 50회
+# - 리포트 API : 1시간당 500회
+# - 모든 API: 1분당 100회
+# - 파트너스 웹의 링크생성 기능: 1분당 50회
 
 # 쿠팡 파트너스 API 키 설정
 ACCESS_KEY = ''  # 자신의 Access Key 입력
 SECRET_KEY = ''  # 자신의 Secret Key 입력'
 
 
+
 def process_row(row):
         search_result = search_products(row["name"])
-        # print("상품명:", row"coupangProductInfos"["name"])
         if search_result.get('data'):
             productList = search_result['data']['productData']
             elementToUpdate = []
             for product in productList:
+                print("상품명:", product['productName'])
                 partner_link_result = generate_partner_link(["https://www.coupang.com/vp/products/{}".format(product['productId'])])
                 if partner_link_result.get('data'):
                     partner_link = partner_link_result['data'][0]['shortenUrl']
@@ -46,7 +46,7 @@ def process_row(row):
             print("검색 결과:", search_result)
         return ([], row["id"])
 
-def getFoodANDUpdateDataFromDB()->str:
+def getFoodANDUpdateDataFromDB()-> None:
     conn = psycopg2.connect(
         dbname="testDB",
         user="kang",
@@ -55,44 +55,25 @@ def getFoodANDUpdateDataFromDB()->str:
         port="5454"  # 기본 포트
     )
     cur = conn.cursor(cursor_factory=DictCursor)
-    # cur.execute("SELECT * FROM food_nutrition WHERE \"isAI\" = true limit 2")   
     cur.execute("SELECT * FROM food_nutrition WHERE kind = 'Processed Food' and \"coupangProductInfos\" is null limit 2000")
     rows = cur.fetchall()
 
     start_time = time.time()
 
     # 각 행에 대해 process_row 함수를 호출하여 결과를 업데이트합니다.
-    # batch_size = 45
-    # for i in range(0, len(rows), batch_size):
-    #     batch = rows[i:i + batch_size]
-    #     for row in batch:
-    #         result = process_row(row)
-    #         if result:
-    #             elementToUpdate, row_id = result
-    #             cur.execute("UPDATE food_nutrition SET \"coupangProductInfos\" = %s WHERE id = %s", (elementToUpdate, row_id))
-    #     conn.commit()  # Commit after processing each batch
-    #     time.sleep(70)  # Wait for 1 minute before processing the next batch
-    #     print("Batch processed:", i // batch_size + 1)
-    
-    # 쿠팡 파트너스 API 호출 제한으로 사용 불가.
-    # - 검색 API: 1분당 50회
-    # - 리포트 API : 1시간당 500회
-    # - 모든 API: 1분당 100회
-    # - 파트너스 웹의 링크생성 기능: 1분당 50회
-
-    batch_size = 1   
+    batch_size = 45
     for i in range(0, len(rows), batch_size):
         batch = rows[i:i + batch_size]
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            futures = [executor.submit(process_row, row) for row in batch]
-            for future in concurrent.futures.as_completed(futures):
-                result = future.result()
-                if result:
-                    elementToUpdate, row_id = result
-                    cur.execute("UPDATE food_nutrition SET \"coupangProductInfos\" = %s WHERE id = %s", (elementToUpdate, row_id))
-        conn.commit()  # Commit after processing each batch
         time.sleep(70)  # Wait for 1 minute before processing the next batch
+
+        for row in batch:
+            result = process_row(row)
+            if result:
+                elementToUpdate, row_id = result
+                cur.execute("UPDATE food_nutrition SET \"coupangProductInfos\" = %s WHERE id = %s", (elementToUpdate, row_id))
+        conn.commit()  # Commit after processing each batch
         print("Batch processed:", i // batch_size + 1)
+    
 
     end_time = time.time()
 
@@ -102,9 +83,7 @@ def getFoodANDUpdateDataFromDB()->str:
     cur.close()
     conn.commit()
     conn.close()
-    
 
-    return "무선 키보드"
 
 def generateHmac(method, url, secretKey, accessKey):
     path, *query = url.split("?")
