@@ -24,7 +24,7 @@ SECRET_KEY = ''  # 자신의 Secret Key 입력'
 
 def process_row(row):
         search_result = search_products(row["name"])
-        # print("상품명:", row["name"])
+        # print("상품명:", row"coupangProductInfos"["name"])
         if search_result.get('data'):
             productList = search_result['data']['productData']
             elementToUpdate = []
@@ -60,16 +60,43 @@ def getFoodANDUpdateDataFromDB()->str:
     rows = cur.fetchall()
 
     start_time = time.time()
+
+    # 각 행에 대해 process_row 함수를 호출하여 결과를 업데이트합니다.
+    # batch_size = 45
+    # for i in range(0, len(rows), batch_size):
+    #     batch = rows[i:i + batch_size]
+    #     for row in batch:
+    #         result = process_row(row)
+    #         if result:
+    #             elementToUpdate, row_id = result
+    #             cur.execute("UPDATE food_nutrition SET \"coupangProductInfos\" = %s WHERE id = %s", (elementToUpdate, row_id))
+    #     conn.commit()  # Commit after processing each batch
+    #     time.sleep(70)  # Wait for 1 minute before processing the next batch
+    #     print("Batch processed:", i // batch_size + 1)
     
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = [executor.submit(process_row, row) for row in rows]
-        for future in concurrent.futures.as_completed(futures):
-            result = future.result()
-            if result:
-                elementToUpdate, row_id = result
-                cur.execute("UPDATE food_nutrition SET \"coupangProductInfos\" = %s WHERE id = %s", (elementToUpdate, row_id))
-    
+    # 쿠팡 파트너스 API 호출 제한으로 사용 불가.
+    # - 검색 API: 1분당 50회
+    # - 리포트 API : 1시간당 500회
+    # - 모든 API: 1분당 100회
+    # - 파트너스 웹의 링크생성 기능: 1분당 50회
+
+    batch_size = 1   
+    for i in range(0, len(rows), batch_size):
+        batch = rows[i:i + batch_size]
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = [executor.submit(process_row, row) for row in batch]
+            for future in concurrent.futures.as_completed(futures):
+                result = future.result()
+                if result:
+                    elementToUpdate, row_id = result
+                    cur.execute("UPDATE food_nutrition SET \"coupangProductInfos\" = %s WHERE id = %s", (elementToUpdate, row_id))
+        conn.commit()  # Commit after processing each batch
+        time.sleep(70)  # Wait for 1 minute before processing the next batch
+        print("Batch processed:", i // batch_size + 1)
+
     end_time = time.time()
+
+
     print(f"Execution time: {end_time - start_time} seconds")
 
     cur.close()
