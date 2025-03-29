@@ -28,7 +28,7 @@ def process_row(row):
             productList = search_result['data']['productData']
             elementToUpdate = []
             for product in productList:
-                print("상품명:", product['productName'])
+                # print("상품명:", product['productName'])
                 partner_link_result = generate_partner_link(["https://www.coupang.com/vp/products/{}".format(product['productId'])])
                 if partner_link_result.get('data'):
                     partner_link = partner_link_result['data'][0]['shortenUrl']
@@ -61,7 +61,7 @@ def getFoodANDUpdateDataFromDB()-> None:
     start_time = time.time()
 
     # 각 행에 대해 process_row 함수를 호출하여 결과를 업데이트합니다.
-    batch_size = 45
+    batch_size = 9
     for i in range(0, len(rows), batch_size):
         batch = rows[i:i + batch_size]
         time.sleep(70)  # Wait for 1 minute before processing the next batch
