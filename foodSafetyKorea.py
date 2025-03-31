@@ -13,7 +13,7 @@ output_file = "/Users/hyungmin/Desktop/food_safety_data.xlsx"
 sequence_number = 1
 
 for i in range(start, end, batch_size):
-    time.sleep(60)  # Wait for 1 minute before processing the next batch
+    time.sleep(10)  # Wait for 1 minute before processing the next batch
     batch_start = i
     batch_end = min(i + batch_size - 1, end)
     url = f"{base_url}{batch_start}/{batch_end}"
