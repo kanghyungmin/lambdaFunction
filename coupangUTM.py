@@ -55,13 +55,13 @@ def getFoodANDUpdateDataFromDB()-> None:
         port="5454"  # 기본 포트
     )
     cur = conn.cursor(cursor_factory=DictCursor)
-    cur.execute("SELECT * FROM food_nutrition WHERE kind = 'Processed Food' and \"coupangProductInfos\" is null limit 2000")
+    cur.execute("SELECT * FROM food_nutrition WHERE kind = 'Processed Food'")
     rows = cur.fetchall()
 
     start_time = time.time()
 
     # 각 행에 대해 process_row 함수를 호출하여 결과를 업데이트합니다.
-    batch_size = 9
+    batch_size = 5
     for i in range(0, len(rows), batch_size):
         batch = rows[i:i + batch_size]
         time.sleep(70)  # Wait for 1 minute before processing the next batch
